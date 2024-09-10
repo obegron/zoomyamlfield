@@ -329,27 +329,21 @@ function setNestedValue(obj: any, path: string, value: string): void {
     outputChannel.appendLine("Nested value set");
 }
 
-// Language detection
 async function detectLanguage(content: string): Promise<string> {
-    if (content.startsWith('#!/bin/bash') || content.includes('#!/usr/bin/env bash')) {
+    // Check for known shebangs or language markers
+    if (content.startsWith('#!/bin/bash') || content.includes('#!/usr/bin/env bash') ||
+        content.startsWith('#!/bin/sh') || content.includes('#!/usr/bin/env sh')) {
         return 'shellscript';
     }
-    if (content.startsWith('#!/usr/bin/env python')) {
+    if (content.startsWith('#!/usr/bin/env python') || content.startsWith('#!/bin/python' || 
+        content.startsWith('#!/usr/libexec/platform-python'))) {
         return 'python';
     }
-
-    return await vscode.languages.getLanguages().then(languages => {
-        for (const lang of languages) {
-            const languageConfiguration = vscode.workspace.getConfiguration(`[${lang}]`);
-            const patterns = languageConfiguration.get('files.associations') as { [key: string]: string } | undefined;
-            if (patterns) {
-                for (const pattern in patterns) {
-                    if (new RegExp(pattern).test(content)) {
-                        return lang;
-                    }
-                }
-            }
-        }
-        return 'plaintext';
-    });
+    if (content.startsWith('#!/usr/bin/env node') || content.includes('#!/bin/node')) {
+        return 'javascript';
+    }
+    if (content.startsWith('#!/usr/bin/env pwsh')) {
+        return 'powershell';
+    }    
+    return 'plaintext';
 }
