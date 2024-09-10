@@ -109,16 +109,16 @@ async function activateYamlKey() {
             let data = lineText.trim();
             let path = getYamlPath(parsedYaml, data);
             if(!path){
-                if(data.includes(":")){
-                    const sf = data.substring(data.indexOf(':')+1,data.length).trim()
-                    outputChannel.appendLine(`trying to find single line field '${sf}'`);
-                    path = getYamlPath(parsedYaml,sf);
-                }
                 if(data.startsWith("- ")){
-                    const sf = data.substring(2,data.length).trim()
-                    outputChannel.appendLine(`trying to find single line field '${sf}'`);
-                    path = getYamlPath(parsedYaml,sf);
+                    data = data.substring(2,data.length).trim()
+                    outputChannel.appendLine(`trying to find single line field '${data}'`);
+                    path = getYamlPath(parsedYaml,data);
                 }
+                if(data.includes(":")){
+                    data  = data.substring(data.indexOf(':')+1,data.length).trim()
+                    outputChannel.appendLine(`trying to find single line field '${data}'`);
+                    path = getYamlPath(parsedYaml,data);
+                }                
             }
 
             if (path) {
