@@ -5,9 +5,9 @@ let zoomedEditor: vscode.TextEditor | undefined;
 let originalEditor: vscode.TextEditor | undefined;
 let yamlPath: string | undefined;
 let isUpdating = false;
+let eol: string | "\n";
 let outputChannel: vscode.OutputChannel;
 
-// Main extension functions
 export function activate(context: vscode.ExtensionContext) {
     outputChannel = vscode.window.createOutputChannel("YAML Field Editor");
     outputChannel.show();
@@ -47,6 +47,7 @@ async function zoomYamlField() {
 
     const document = originalEditor.document;
     const yamlContent = document.getText();
+    eol = document.eol === vscode.EndOfLine.CRLF ? '\r\n' : '\n';
 
     try {
         const parsedYaml = yaml.load(yamlContent) as any;
@@ -57,10 +58,11 @@ async function zoomYamlField() {
         }
 
         const stringValue = convertToString(fieldValue);
+
         const detectedLanguage = await detectLanguage(stringValue);
 
         const newDocument = await vscode.workspace.openTextDocument({
-            content: `# YAML Path: ${yamlPath}\n\n${stringValue}`,
+            content: `# YAML Path: ${yamlPath}${eol}${eol}${stringValue}`,
             language: detectedLanguage
         });
 
@@ -70,10 +72,24 @@ async function zoomYamlField() {
 
         setupChangeHandler(newDocument);
         setupCloseHandler(newDocument);
+        setupEditHandler(newDocument);
 
     } catch (error) {
         handleError(error);
     }
+    
+}
+
+
+
+function setupEditHandler(document: vscode.TextDocument) {
+    return vscode.workspace.onDidChangeTextDocument(async (e) => {
+        if (e.document === document && !isUpdating) {
+            isUpdating = true;
+            await updateOriginalYaml();
+            isUpdating = false;
+        }
+    });
 }
 
 async function activateYamlKey() {
@@ -168,17 +184,32 @@ async function updateOriginalYaml() {
     if (!zoomedContent) return;
 
     try {
-        const parsedYaml = yaml.load(yamlContent) as any;
+        const parsedYaml = yaml.load(yamlContent, { schema: yaml.DEFAULT_SCHEMA }) as any;
+
+        // Remove the YAML path comment and any leading newlines
         const fieldValue = zoomedContent.replace(/^# YAML Path:.*\r?\n\r?\n/, '').trim();
 
-        setNestedValue(parsedYaml, yamlPath, fieldValue, true);
+        // Update the value in the parsed YAML
+        setNestedValue(parsedYaml, yamlPath, fieldValue);
 
-        const updatedYaml = yaml.dump(parsedYaml, {
-            lineWidth: -1,
+        // Convert the updated YAML back to a string
+        let updatedYaml = yaml.dump(parsedYaml, {
             noRefs: true,
-            noCompatMode: true,
+            lineWidth: -1,
+            forceQuotes: false,
+            quotingType: '"',
+            styles: {
+                '!!null': 'canonical', // dump null as ~
+                '!!int': 'decimal',
+                '!!bool': 'lowercase',
+                '!!float': 'lowercase',
+                '!!map': 'block',
+                '!!seq': 'block',
+                '!!str': 'literal'
+            }
         });
 
+        // Apply the edit
         const edit = new vscode.WorkspaceEdit();
         edit.replace(
             originalEditor.document.uri,
@@ -194,8 +225,11 @@ async function updateOriginalYaml() {
 
 function handleError(error: unknown) {
     if (error instanceof Error) {
+        outputChannel.appendLine(`Error: ${error.message}`);
+        outputChannel.appendLine(error.stack || "No stack trace available");
         vscode.window.showErrorMessage(`Error: ${error.message}`);
     } else {
+        outputChannel.appendLine(`An unexpected error occurred: ${String(error)}`);
         vscode.window.showErrorMessage('An unexpected error occurred');
     }
 }
@@ -218,7 +252,7 @@ function getYamlPath(obj: any, targetKey: string, targetLine: number): string | 
                 const result = traverse(value, currentPath, line + 1);
                 if (result) return result;
             } else if (typeof value === 'string') {
-                const lines = value.split('\n').length;
+                const lines = value.split(eol).length;
                 if (line <= targetLine && targetLine < line + lines) {
                     return currentPath.join('.');
                 }
@@ -263,7 +297,10 @@ function getNestedValue(obj: any, path: string): any {
     return current;
 }
 
-function setNestedValue(obj: any, path: string, value: any, preserveMultiline: boolean = false): void {
+function setNestedValue(obj: any, path: string, value: string): void {
+    outputChannel.appendLine(`${eol}Setting nested value for path: ${path}`);
+    outputChannel.appendLine(`Value to set: ${value}`);
+
     const parts = path.split('.').filter(part => part !== '');
     let current = obj;
 
@@ -294,15 +331,12 @@ function setNestedValue(obj: any, path: string, value: any, preserveMultiline: b
         if (!current[arrayName]) {
             current[arrayName] = [];
         }
-        current[arrayName][index] = preserveMultiline ? preserveMultilineString(value) : value;
+        current[arrayName][index] = value;
     } else {
-        current[lastPart] = preserveMultiline ? preserveMultilineString(value) : value;
+        current[lastPart] = value;
     }
-}
 
-function preserveMultilineString(value: string): string {
-    const lines = value.split('\n');
-    return lines.length > 1 ? lines.join('\n') : value;
+    outputChannel.appendLine("Nested value set");
 }
 
 // Language detection
