@@ -33,11 +33,6 @@ async function zoomYamlField() {
     }
 
     outputChannel.appendLine(`yamlPath ${yamlPath}`);
-    if (!yamlPath) {
-        yamlPath = await vscode.window.showInputBox({
-            prompt: 'Enter YAML path (e.g., spec.template.spec.containers[0].env[0].value)',
-        });
-    }
 
     if (!yamlPath) return;
 
@@ -108,14 +103,23 @@ async function activateYamlKey() {
         const parsedYaml = yaml.load(yamlContent) as any;
 
         const lineText = document.lineAt(cursorPosition.line).text;
-        const keyMatch = lineText.match(/^\s*([^:]+):/);
+        outputChannel.appendLine(`find key containing substring  ${lineText}`)
 
-        if (keyMatch) {
-            let key = keyMatch[1].trim();
-            if (!key.startsWith('.')) {
-                key = '.' + key;
+        if (lineText) {
+            let data = lineText.trim();
+            let path = getYamlPath(parsedYaml, data);
+            if(!path){
+                if(data.includes(":")){
+                    const sf = data.substring(data.indexOf(':')+1,data.length).trim()
+                    outputChannel.appendLine(`trying to find single line field '${sf}'`);
+                    path = getYamlPath(parsedYaml,sf);
+                }
+                if(data.startsWith("- ")){
+                    const sf = data.substring(2,data.length).trim()
+                    outputChannel.appendLine(`trying to find single line field '${sf}'`);
+                    path = getYamlPath(parsedYaml,sf);
+                }
             }
-            const path = getYamlPath(parsedYaml, key, cursorPosition.line);
 
             if (path) {
                 const value = getNestedValue(parsedYaml, path);
@@ -127,10 +131,8 @@ async function activateYamlKey() {
                     vscode.window.showWarningMessage(`Key "${path}" not found in YAML structure.`);
                 }
             } else {
-                vscode.window.showWarningMessage(`Could not determine path for key "${key}".`);
+                vscode.window.showWarningMessage(`Could not determine path for value "${data}".`);
             }
-        } else {
-            vscode.window.showWarningMessage('No YAML key found at cursor position.');
         }
     } catch (error) {
         handleError(error);
@@ -234,37 +236,25 @@ function handleError(error: unknown) {
     }
 }
 
-// YAML manipulation functions
-function getYamlPath(obj: any, targetKey: string, targetLine: number): string | undefined {
-    function traverse(current: any, path: string[] = [], line: number = 0): string | undefined {
+
+function getYamlPath(obj: any, data: string): string | undefined {
+    function traverse(current: any, path: string[] = []): string | undefined {
         if (typeof current !== 'object' || current === null) {
             return undefined;
         }
 
         for (const [key, value] of Object.entries(current)) {
             const currentPath = [...path, key];
-
-            if (key === targetKey && line === targetLine) {
-                return currentPath.join('.');
-            }
-
+            
             if (typeof value === 'object' && value !== null) {
-                const result = traverse(value, currentPath, line + 1);
+                const result = traverse(value, currentPath);
                 if (result) return result;
-            } else if (typeof value === 'string') {
-                const lines = value.split(eol).length;
-                if (line <= targetLine && targetLine < line + lines) {
+            } else if (typeof value === 'string' && value.includes(data)) {
                     return currentPath.join('.');
-                }
-                line += lines - 1;
-            }
-
-            line++;
+            }            
         }
-
         return undefined;
     }
-
     return traverse(obj);
 }
 

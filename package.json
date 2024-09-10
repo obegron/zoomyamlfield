@@ -3,7 +3,7 @@
   "displayName": "YAML Field Editor",
   "description": "Zoom and edit YAML fields",
   "publisher": "obegron",
-  "version": "0.0.2",
+  "version": "0.0.3",
   "repository": "git@github.com:obegron/zoomyamlfield.git",
   "engines": {
     "vscode": "^1.67.0"
@@ -19,15 +19,15 @@
     "commands": [
       {
         "command": "extension.zoomYamlField",
-        "title": "Zoom YAML Field"
+        "title": "Zoom edit YAML Field"
       },
       {
         "command": "extension.exitZoomYamlField",
-        "title": "Exit Zoom YAML Field"
+        "title": "Exit Zoom edit YAML Field"
       },
       {
         "command": "extension.activateYamlKey",
-        "title": "Zoom YAML Key"
+        "title": "Zoom edit YAML Field"
       }
     ],
     "menus": {
