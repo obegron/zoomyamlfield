@@ -53,8 +53,12 @@ async function zoomYamlField() {
         }
 
         const stringValue = convertToString(fieldValue);
-
         const detectedLanguage = await detectLanguage(stringValue);
+
+        const cursorPosition = originalEditor.selection.active;
+        const currentLine = document.lineAt(cursorPosition.line).text;
+
+        const zoomedLineNumber = findCorrespondingLine(currentLine, stringValue);
 
         const newDocument = await vscode.workspace.openTextDocument({
             content: `# YAML Path: ${yamlPath}${eol}${eol}${stringValue}`,
@@ -62,6 +66,16 @@ async function zoomYamlField() {
         });
 
         zoomedEditor = await vscode.window.showTextDocument(newDocument, vscode.ViewColumn.Beside);
+        
+        outputChannel.appendLine(`zoomedLineNumber ${zoomedLineNumber}`);
+
+        // Scroll to the corresponding line in the zoomed editor + 2 because of header we add
+        if (zoomedLineNumber !== -1) {
+            const position = new vscode.Position(zoomedLineNumber + 2, 0);
+            zoomedEditor.revealRange(new vscode.Range(position, position), vscode.TextEditorRevealType.InCenter);
+            zoomedEditor.selection = new vscode.Selection(position, position);
+        }
+
 
         highlightYamlPath(zoomedEditor, yamlPath);
 
@@ -73,6 +87,29 @@ async function zoomYamlField() {
         handleError(error);
     }
     
+}
+
+function findCorrespondingLine(currentLine: string, zoomedContent: string): number {
+    const lines = zoomedContent.split(/\r?\n/);
+    let data = currentLine.trim();
+
+    if (data.startsWith('- ')) {
+        data = data.substring(2).trim();
+    }
+    if (data.includes(':')) {
+        data = data.substring(data.indexOf(':') + 1).trim();
+    }
+    outputChannel.appendLine(`looking for ${data}`);
+
+    for (let i = 0; i < lines.length; i++) {
+        const line = lines[i].trim();
+        outputChannel.appendLine(`${i}:  ${line}`);
+        if (line.includes(data)) {
+            return i;
+        }
+    }
+
+    return -1;
 }
 
 
@@ -110,12 +147,12 @@ async function activateYamlKey() {
             let path = getYamlPath(parsedYaml, data);
             if(!path){
                 if(data.startsWith("- ")){
-                    data = data.substring(2,data.length).trim()
+                    data = data = data.substring(2).trim();
                     outputChannel.appendLine(`trying to find array field containing value '${data}'`);
                     path = getYamlPath(parsedYaml,data);
                 }
                 if(data.includes(":")){
-                    data  = data.substring(data.indexOf(':')+1,data.length).trim()
+                    data  = data.substring(data.indexOf(':') + 1).trim();
                     outputChannel.appendLine(`trying to find single line field containing value '${data}'`);
                     path = getYamlPath(parsedYaml,data);
                 }                
