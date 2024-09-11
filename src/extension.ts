@@ -99,7 +99,6 @@ function findCorrespondingLine(currentLine: string, zoomedContent: string): numb
     if (data.includes(':')) {
         data = data.substring(data.indexOf(':') + 1).trim();
     }
-    outputChannel.appendLine(`looking for ${data}`);
 
     for (let i = 0; i < lines.length; i++) {
         const line = lines[i].trim();
