@@ -3,7 +3,7 @@
   "displayName": "YAML Field Editor",
   "description": "Zoom and edit YAML fields",
   "publisher": "obegron",
-  "version": "0.0.5",
+  "version": "0.0.6",
   "repository": "git@github.com:obegron/zoomyamlfield.git",
   "engines": {
     "vscode": "^1.67.0"
@@ -38,6 +38,16 @@
           "group": "navigation"
         }
       ]
+    },
+    "configuration": {
+      "title": "YAML Field Editor",
+      "properties": {
+        "yamlFieldEditor.enableDebugLogging": {
+          "type": "boolean",
+          "default": false,
+          "description": "Enable debug logging to the output channel"
+        }
+      }
     }
   },
   "scripts": {

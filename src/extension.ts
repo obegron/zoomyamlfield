@@ -6,17 +6,31 @@ let originalEditor: vscode.TextEditor | undefined;
 let yamlPath: string | undefined;
 let isUpdating = false;
 let eol: string | "\n";
+let debugLogging: boolean;
 let outputChannel: vscode.OutputChannel;
 
 export function activate(context: vscode.ExtensionContext) {
     outputChannel = vscode.window.createOutputChannel("YAML Field Editor");
     outputChannel.show();
-    outputChannel.appendLine("Extension activated");
+    debugLogging = vscode.workspace.getConfiguration('yamlFieldEditor').get('enableDebugLogging', false);
+    debugLog("Extension activated");
 
     const zoomYamlFieldDisposable = vscode.commands.registerCommand('extension.zoomYamlField', zoomYamlField);
     const activateYamlKeyDisposable = vscode.commands.registerCommand('extension.activateYamlKey', activateYamlKey);
 
     context.subscriptions.push(zoomYamlFieldDisposable, activateYamlKeyDisposable);
+    vscode.workspace.onDidChangeConfiguration(e => {
+        if (e.affectsConfiguration('yamlFieldEditor.enableDebugLogging')) {
+            debugLogging = vscode.workspace.getConfiguration('yamlFieldEditor').get('enableDebugLogging', false);
+            debugLog(`Debug logging ${debugLogging ? 'enabled' : 'disabled'}`);
+        }
+    });
+}
+
+function debugLog(message: string) {
+    if (debugLogging) {
+        outputChannel.appendLine(`[DEBUG] ${message}`);
+    }
 }
 
 export function deactivate() {
@@ -32,7 +46,7 @@ async function zoomYamlField() {
         return;
     }
 
-    outputChannel.appendLine(`yamlPath ${yamlPath}`);
+    debugLog(`yamlPath ${yamlPath}`);
 
     if (!yamlPath) return;
 
@@ -67,7 +81,7 @@ async function zoomYamlField() {
 
         zoomedEditor = await vscode.window.showTextDocument(newDocument, vscode.ViewColumn.Beside);
         
-        outputChannel.appendLine(`zoomedLineNumber ${zoomedLineNumber}`);
+        debugLog(`zoomedLineNumber ${zoomedLineNumber}`);
 
         // Scroll to the corresponding line in the zoomed editor + 2 because of header we add
         if (zoomedLineNumber !== -1) {
@@ -102,7 +116,7 @@ function findCorrespondingLine(currentLine: string, zoomedContent: string): numb
 
     for (let i = 0; i < lines.length; i++) {
         const line = lines[i].trim();
-        outputChannel.appendLine(`${i}:  ${line}`);
+        debugLog(`${i}:  ${line}`);
         if (line.includes(data)) {
             return i;
         }
@@ -142,17 +156,17 @@ async function activateYamlKey() {
 
         if (lineText) {
             let data = lineText.trim();
-            outputChannel.appendLine(`trying to find key for value containing value  ${lineText}`)
+            debugLog(`trying to find key for value containing value  ${lineText}`)
             let path = getYamlPath(parsedYaml, data);
             if(!path){
                 if(data.startsWith("- ")){
                     data = data = data.substring(2).trim();
-                    outputChannel.appendLine(`trying to find array field containing value '${data}'`);
+                    debugLog(`trying to find array field containing value '${data}'`);
                     path = getYamlPath(parsedYaml,data);
                 }
                 if(data.includes(":")){
                     data  = data.substring(data.indexOf(':') + 1).trim();
-                    outputChannel.appendLine(`trying to find single line field containing value '${data}'`);
+                    debugLog(`trying to find single line field containing value '${data}'`);
                     path = getYamlPath(parsedYaml,data);
                 }                
             }
@@ -263,11 +277,11 @@ async function updateOriginalYaml() {
 
 function handleError(error: unknown) {
     if (error instanceof Error) {
-        outputChannel.appendLine(`Error: ${error.message}`);
-        outputChannel.appendLine(error.stack || "No stack trace available");
+        debugLog(`Error: ${error.message}`);
+        debugLog(error.stack || "No stack trace available");
         vscode.window.showErrorMessage(`Error: ${error.message}`);
     } else {
-        outputChannel.appendLine(`An unexpected error occurred: ${String(error)}`);
+        debugLog(`An unexpected error occurred: ${String(error)}`);
         vscode.window.showErrorMessage('An unexpected error occurred');
     }
 }
@@ -324,8 +338,8 @@ function getNestedValue(obj: any, path: string): any {
 }
 
 function setNestedValue(obj: any, path: string, value: string): void {
-    outputChannel.appendLine(`${eol}Setting nested value for path: ${path}`);
-    outputChannel.appendLine(`Value to set: ${value}`);
+    debugLog(`${eol}Setting nested value for path: ${path}`);
+    debugLog(`Value to set: ${value}`);
 
     const parts = path.split('.').filter(part => part !== '');
     let current = obj;
@@ -362,7 +376,7 @@ function setNestedValue(obj: any, path: string, value: string): void {
         current[lastPart] = value;
     }
 
-    outputChannel.appendLine("Nested value set");
+    debugLog("Nested value set");
 }
 
 async function detectLanguage(content: string): Promise<string> {
