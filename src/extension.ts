@@ -102,21 +102,21 @@ async function activateYamlKey() {
         const yamlContent = document.getText();
         const parsedYaml = yaml.load(yamlContent) as any;
 
-        const lineText = document.lineAt(cursorPosition.line).text;
-        outputChannel.appendLine(`find key containing substring  ${lineText}`)
+        const lineText = document.lineAt(cursorPosition.line).text;        
 
         if (lineText) {
             let data = lineText.trim();
+            outputChannel.appendLine(`trying to find key for value containing value  ${lineText}`)
             let path = getYamlPath(parsedYaml, data);
             if(!path){
                 if(data.startsWith("- ")){
                     data = data.substring(2,data.length).trim()
-                    outputChannel.appendLine(`trying to find single line field '${data}'`);
+                    outputChannel.appendLine(`trying to find array field containing value '${data}'`);
                     path = getYamlPath(parsedYaml,data);
                 }
                 if(data.includes(":")){
                     data  = data.substring(data.indexOf(':')+1,data.length).trim()
-                    outputChannel.appendLine(`trying to find single line field '${data}'`);
+                    outputChannel.appendLine(`trying to find single line field containing value '${data}'`);
                     path = getYamlPath(parsedYaml,data);
                 }                
             }
