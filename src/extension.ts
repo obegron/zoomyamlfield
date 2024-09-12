@@ -45,7 +45,7 @@ async function zoomYamlField() {
         vscode.window.showErrorMessage('No active editor!');
         return;
     }
-
+    debugLog(`Original editor document: ${originalEditor.document.uri.toString()}`);
     debugLog(`yamlPath ${yamlPath}`);
 
     if (!yamlPath) return;
@@ -98,7 +98,7 @@ async function zoomYamlField() {
         setupEditHandler(newDocument);
 
     } catch (error) {
-        handleError(error);
+        handleError(error,'zoomYamlField');
     }
     
 }
@@ -185,7 +185,7 @@ async function activateYamlKey() {
             }
         }
     } catch (error) {
-        handleError(error);
+        handleError(error,'activateYamlKey');
     }
 }
 
@@ -271,18 +271,18 @@ async function updateOriginalYaml() {
 
         await vscode.workspace.applyEdit(edit);
     } catch (error) {
-        handleError(error);
+        handleError(error,"updateOriginalYaml");
     }
 }
 
-function handleError(error: unknown) {
+function handleError(error: unknown, context: string) {
     if (error instanceof Error) {
-        debugLog(`Error: ${error.message}`);
+        debugLog(`Error in ${context}: ${error.message}`);
         debugLog(error.stack || "No stack trace available");
-        vscode.window.showErrorMessage(`Error: ${error.message}`);
+        vscode.window.showErrorMessage(`Error in ${context}: ${error.message}`);
     } else {
-        debugLog(`An unexpected error occurred: ${String(error)}`);
-        vscode.window.showErrorMessage('An unexpected error occurred');
+        debugLog(`An unexpected error occurred in ${context}: ${String(error)}`);
+        vscode.window.showErrorMessage(`An unexpected error occurred in ${context}`);
     }
 }
 
