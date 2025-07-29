@@ -57,7 +57,8 @@
     "pretest": "npm run compile && npm run lint",
     "lint": "eslint src --ext ts",
     "test": "node ./out/test/runTest.js",
-    "package": "vsce package"
+    "package": "vsce package",
+    "package:release": "npm run package && VSIX_FILE=$(ls *.vsix | head -n 1) && 7z d \"$VSIX_FILE\" extension/.github/ extension/.vscode/ extension/src/test/ extension/out/test/ extension/.gitignore extension/src/extension.ts extension/tsconfig.json"
   },
   "devDependencies": {
     "@types/js-yaml": "^4.0.9",
@@ -74,5 +75,13 @@
   },
   "dependencies": {
     "js-yaml": "^4.1.0"
-  }
+  },
+  "files": [
+    "out",
+    "node_modules",
+    "CHANGELOG.md",
+    "LICENSE.txt",
+    "README.md",
+    "package.json"
+  ]
 }
