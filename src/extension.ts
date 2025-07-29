@@ -1,9 +1,13 @@
 import * as vscode from 'vscode';
 import * as yaml from 'js-yaml';
+import * as fs from 'fs';
+import * as os from 'os';
+import * as path from 'path';
 
 let zoomedEditor: vscode.TextEditor | undefined;
 let originalEditor: vscode.TextEditor | undefined;
 let yamlPath: string | undefined;
+let tempFilePath: string | undefined;
 let isUpdating = false;
 let eol: string | "\n";
 let debugLogging: boolean;
@@ -34,8 +38,18 @@ function debugLog(message: string) {
 }
 
 export function deactivate() {
+    if (tempFilePath) {
+        try {
+            if (fs.existsSync(tempFilePath)) {
+                fs.unlinkSync(tempFilePath);
+            }
+        } catch (error) {
+            debugLog(`Error deleting temp file: ${error}`);
+        }
+    }
     zoomedEditor = undefined;
     yamlPath = undefined;
+    tempFilePath = undefined;
 }
 
 // Command implementations
@@ -74,10 +88,20 @@ async function zoomYamlField() {
 
         const zoomedLineNumber = findCorrespondingLine(currentLine, stringValue);
 
-        const newDocument = await vscode.workspace.openTextDocument({
-            content: `# YAML Path: ${yamlPath}${eol}${eol}${stringValue}`,
-            language: detectedLanguage
-        });
+        const langExtensions: { [key: string]: string } = {
+            'shellscript': 'sh',
+            'python': 'py',
+            'javascript': 'js',
+            'powershell': 'ps1',
+            'plaintext': 'txt'
+        };
+        const extension = langExtensions[detectedLanguage] || 'txt';
+        const tempDir = os.tmpdir();
+        tempFilePath = path.join(tempDir, `zoomed-yaml-${Date.now()}.${extension}`);
+        const fileContent = `# YAML Path: ${yamlPath}${eol}${eol}${stringValue}`;
+        fs.writeFileSync(tempFilePath, fileContent);
+
+        const newDocument = await vscode.workspace.openTextDocument(tempFilePath);
 
         zoomedEditor = await vscode.window.showTextDocument(newDocument, vscode.ViewColumn.Beside);
         
@@ -93,7 +117,6 @@ async function zoomYamlField() {
 
         highlightYamlPath(zoomedEditor, yamlPath);
 
-        setupChangeHandler(newDocument);
         setupCloseHandler(newDocument);
         setupEditHandler(newDocument);
 
@@ -132,6 +155,9 @@ function setupEditHandler(document: vscode.TextDocument) {
         if (e.document === document && !isUpdating) {
             isUpdating = true;
             await updateOriginalYaml();
+            if (zoomedEditor && zoomedEditor.document === document && !zoomedEditor.document.isClosed) {
+                await zoomedEditor.document.save();
+            }
             isUpdating = false;
         }
     });
@@ -195,7 +221,8 @@ function convertToString(value: any): string {
         return value;
     } else if (typeof value === 'object') {
         return yaml.dump(value);
-    } else {
+    }
+    else {
         return String(value);
     }
 }
@@ -208,19 +235,19 @@ function highlightYamlPath(editor: vscode.TextEditor, path: string) {
     }), [range]);
 }
 
-function setupChangeHandler(document: vscode.TextDocument) {
-    return vscode.workspace.onDidChangeTextDocument(async (e) => {
-        if (e.document === document && !isUpdating) {
-            isUpdating = true;
-            await updateOriginalYaml();
-            isUpdating = false;
-        }
-    });
-}
-
 function setupCloseHandler(document: vscode.TextDocument) {
     return vscode.workspace.onDidCloseTextDocument(async (closedDoc) => {
         if (closedDoc === document) {
+            if (tempFilePath) {
+                try {
+                    if (fs.existsSync(tempFilePath)) {
+                        fs.unlinkSync(tempFilePath);
+                    }
+                } catch (error) {
+                    handleError(error, "unlink temp file");
+                }
+                tempFilePath = undefined;
+            }
             zoomedEditor = undefined;
             yamlPath = undefined;
         }
@@ -239,7 +266,7 @@ async function updateOriginalYaml() {
         const parsedYaml = yaml.load(yamlContent, { schema: yaml.DEFAULT_SCHEMA }) as any;
 
         // Remove the YAML path comment and any leading newlines
-        const fieldValue = zoomedContent.replace(/^# YAML Path:.*\r?\n\r?\n/, '').trim();
+        const fieldValue = zoomedContent.replace(/^# YAML Path:.*?\n?\n/, '').trim();
 
         // Update the value in the parsed YAML
         setNestedValue(parsedYaml, yamlPath, fieldValue);
@@ -385,8 +412,8 @@ async function detectLanguage(content: string): Promise<string> {
         content.startsWith('#!/bin/sh') || content.includes('#!/usr/bin/env sh')) {
         return 'shellscript';
     }
-    if (content.startsWith('#!/usr/bin/env python') || content.startsWith('#!/bin/python' || 
-        content.startsWith('#!/usr/libexec/platform-python'))) {
+    if (content.startsWith('#!/usr/bin/env python') || content.startsWith('#!/bin/python') || 
+        content.startsWith('#!/usr/libexec/platform-python')) {
         return 'python';
     }
     if (content.startsWith('#!/usr/bin/env node') || content.includes('#!/bin/node')) {
@@ -394,6 +421,6 @@ async function detectLanguage(content: string): Promise<string> {
     }
     if (content.startsWith('#!/usr/bin/env pwsh')) {
         return 'powershell';
-    }    
+    }
     return 'plaintext';
 }
