@@ -20,6 +20,10 @@ jobs:
       - run: sudo apt-get install -y p7zip-full
       - run: npm run package:release
       - run: ls -l
+      - name: Get VSIX file name
+        id: get_vsix_name
+        run: |
+          echo "vsix_name=$(ls *.vsix)" >> $GITHUB_OUTPUT
       - name: Create Release
         id: create_release
         uses: actions/create-release@v1
@@ -37,6 +41,6 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: "./*.vsix"
-          asset_name: "$(ls *.vsix | head -n 1)"
+          asset_path: ./${{ steps.get_vsix_name.outputs.vsix_name }}
+          asset_name: ${{ steps.get_vsix_name.outputs.vsix_name }}
           asset_content_type: application/vsix
