@@ -3,7 +3,7 @@
   "displayName": "YAML Field Editor",
   "description": "Zoom and edit YAML fields",
   "publisher": "obegron",
-  "version": "0.0.6",
+  "version": "0.0.7",
   "repository": "git@github.com:obegron/zoomyamlfield.git",
   "engines": {
     "vscode": "^1.67.0"
@@ -58,7 +58,7 @@
     "lint": "eslint src --ext ts",
     "test": "node ./out/test/runTest.js",
     "package": "vsce package",
-    "package:release": "npm run package && VSIX_FILE=$(ls *.vsix | head -n 1) && 7z d \"$VSIX_FILE\" extension/.github/ extension/.vscode/ extension/src/test/ extension/out/test/ extension/.gitignore extension/src/extension.ts extension/tsconfig.json"
+    "package:release": "npm run package && 7z d *.vsix extension/.github/ extension/.vscode/ extension/src/test/ extension/out/test/ extension/.gitignore extension/src/extension.ts extension/tsconfig.json"
   },
   "devDependencies": {
     "@types/js-yaml": "^4.0.9",
