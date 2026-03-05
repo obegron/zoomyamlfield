@@ -1,0 +1,1 @@
+# Intentionally present so npm/vsce uses this file instead of falling back to .gitignore.

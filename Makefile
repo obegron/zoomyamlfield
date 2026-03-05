@@ -1,6 +1,6 @@
 SHELL := /bin/bash
 
-.PHONY: help install compile watch lint test build package release clean
+.PHONY: help install compile watch lint test build package release run clean
 
 help:
 	@echo "Targets:"
@@ -12,6 +12,7 @@ help:
 	@echo "  build    - compile + lint + test"
 	@echo "  package  - create VSIX package"
 	@echo "  release  - create release package"
+	@echo "  run      - open Extension Development Host in VS Code"
 	@echo "  clean    - remove build output"
 
 install:
@@ -36,6 +37,9 @@ package:
 
 release:
 	npm run package:release
+
+run: compile
+	code --new-window --extensionDevelopmentPath="$(CURDIR)" "$(CURDIR)"
 
 clean:
 	rm -rf out *.vsix

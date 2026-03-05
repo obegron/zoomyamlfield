@@ -3,7 +3,7 @@
   "displayName": "YAML Field Editor",
   "description": "Zoom and edit YAML fields",
   "publisher": "obegron",
-  "version": "0.0.9",
+  "version": "0.1.0",
   "repository": "git@github.com:obegron/zoomyamlfield.git",
   "engines": {
     "vscode": "^1.106.1"
@@ -51,23 +51,25 @@
     }
   },
   "scripts": {
-    "vscode:prepublish": "npm run compile",
+    "vscode:prepublish": "npm run bundle",
+    "bundle": "esbuild src/extension.ts --bundle --platform=node --target=node18 --format=cjs --external:vscode --outfile=out/extension.js --sourcemap",
     "compile": "tsc -p ./",
     "watch": "tsc -watch -p ./",
     "pretest": "npm run compile && npm run lint",
     "lint": "eslint src --ext ts",
     "test": "node ./out/test/runTest.js",
-    "package": "vsce package",
+    "package": "npx @vscode/vsce package --no-dependencies",
     "package:release": "npm run package && 7z d *.vsix extension/.github/ extension/.vscode/ extension/src/test/ extension/out/test/ extension/.gitignore extension/src/extension.ts extension/tsconfig.json"
   },
   "devDependencies": {
     "@types/js-yaml": "^4.0.9",
     "@types/mocha": "^10.0.8",
     "@types/node": "^25.x",
-    "@types/vscode": "^1.109.0",
+    "@types/vscode": "^1.106.0",
     "@typescript-eslint/eslint-plugin": "^8.56.1",
     "@typescript-eslint/parser": "^8.56.0",
     "@vscode/test-electron": "^2.1.3",
+    "esbuild": "^0.25.10",
     "eslint": "^10.0.2",
     "mocha": "^11.7.5",
     "typescript": "^5.6.2",
@@ -78,14 +80,7 @@
     "serialize-javascript": "7.0.3"
   },
   "dependencies": {
-    "js-yaml": "^4.1.1"
-  },
-  "files": [
-    "out",
-    "node_modules",
-    "CHANGELOG.md",
-    "LICENSE.txt",
-    "README.md",
-    "package.json"
-  ]
+    "js-yaml": "^4.1.1",
+    "yaml": "^2.8.1"
+  }
 }

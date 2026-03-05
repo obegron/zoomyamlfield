@@ -13,5 +13,6 @@ Any edits you make in this new "zoomed-in" tab are automatically and instantly r
 3.  **Right-click** anywhere on the line containing the key or value of that field.
 4.  From the context menu, select **"Zoom edit YAML Field"**.
 5.  A new editor tab will open next to your YAML file, showing only the content of the selected field.
-6.  **Edit the content** in this new tab as needed. Your changes are saved back to the original YAML file in real-time.
-7.  When you are finished, simply **close the new editor tab**.
+6.  The active YAML path is shown in the status bar as **YAML Zoom: ...** while editing.
+7.  **Edit the content** in this new tab as needed. Your changes are saved back to the original YAML file in real-time.
+8.  When you are finished, simply **close the new editor tab**.

@@ -1,5 +1,6 @@
 import * as vscode from 'vscode';
-import * as yaml from 'js-yaml';
+import * as jsYaml from 'js-yaml';
+import { isMap, isScalar, isSeq, parseDocument } from 'yaml';
 import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
@@ -12,17 +13,20 @@ let isUpdating = false;
 let eol: string | "\n";
 let debugLogging: boolean;
 let outputChannel: vscode.OutputChannel;
+let zoomStatusBarItem: vscode.StatusBarItem;
 
 export function activate(context: vscode.ExtensionContext) {
     outputChannel = vscode.window.createOutputChannel("YAML Field Editor");
     outputChannel.show();
+    zoomStatusBarItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right, 100);
+    zoomStatusBarItem.hide();
     debugLogging = vscode.workspace.getConfiguration('yamlFieldEditor').get('enableDebugLogging', false);
     debugLog("Extension activated");
 
     const zoomYamlFieldDisposable = vscode.commands.registerCommand('extension.zoomYamlField', zoomYamlField);
     const activateYamlKeyDisposable = vscode.commands.registerCommand('extension.activateYamlKey', activateYamlKey);
 
-    context.subscriptions.push(zoomYamlFieldDisposable, activateYamlKeyDisposable);
+    context.subscriptions.push(zoomYamlFieldDisposable, activateYamlKeyDisposable, zoomStatusBarItem);
     vscode.workspace.onDidChangeConfiguration(e => {
         if (e.affectsConfiguration('yamlFieldEditor.enableDebugLogging')) {
             debugLogging = vscode.workspace.getConfiguration('yamlFieldEditor').get('enableDebugLogging', false);
@@ -50,6 +54,7 @@ export function deactivate() {
     zoomedEditor = undefined;
     yamlPath = undefined;
     tempFilePath = undefined;
+    zoomStatusBarItem.hide();
 }
 
 // Command implementations
@@ -73,7 +78,7 @@ async function zoomYamlField() {
     eol = document.eol === vscode.EndOfLine.CRLF ? '\r\n' : '\n';
 
     try {
-        const parsedYaml = yaml.load(yamlContent) as any;
+        const parsedYaml = jsYaml.load(yamlContent) as any;
         const fieldValue = getNestedValue(parsedYaml, yamlPath);
 
         if (fieldValue === undefined) {
@@ -98,7 +103,7 @@ async function zoomYamlField() {
         const extension = langExtensions[detectedLanguage] || 'txt';
         const tempDir = os.tmpdir();
         tempFilePath = path.join(tempDir, `zoomed-yaml-${Date.now()}.${extension}`);
-        const fileContent = `# YAML Path: ${yamlPath}${eol}${eol}${stringValue}`;
+        const fileContent = stringValue;
         fs.writeFileSync(tempFilePath, fileContent);
 
         const newDocument = await vscode.workspace.openTextDocument(tempFilePath);
@@ -107,15 +112,14 @@ async function zoomYamlField() {
         
         debugLog(`zoomedLineNumber ${zoomedLineNumber}`);
 
-        // Scroll to the corresponding line in the zoomed editor + 2 because of header we add
+        // Scroll to the corresponding line in the zoomed editor
         if (zoomedLineNumber !== -1) {
-            const position = new vscode.Position(zoomedLineNumber + 2, 0);
+            const position = new vscode.Position(zoomedLineNumber, 0);
             zoomedEditor.revealRange(new vscode.Range(position, position), vscode.TextEditorRevealType.InCenter);
             zoomedEditor.selection = new vscode.Selection(position, position);
         }
 
-
-        highlightYamlPath(zoomedEditor, yamlPath);
+        showZoomStatus(yamlPath);
 
         setupCloseHandler(newDocument);
         setupEditHandler(newDocument);
@@ -176,14 +180,19 @@ async function activateYamlKey() {
 
     try {
         const yamlContent = document.getText();
-        const parsedYaml = yaml.load(yamlContent) as any;
+        const parsedYaml = jsYaml.load(yamlContent) as any;
 
-        const lineText = document.lineAt(cursorPosition.line).text;        
+        const lineText = document.lineAt(cursorPosition.line).text;
 
         if (lineText) {
             let data = lineText.trim();
-            debugLog(`trying to find key for value containing value  ${lineText}`)
-            let path = getYamlPath(parsedYaml, data);
+            debugLog(`Trying to determine path from cursor at line ${cursorPosition.line}, char ${cursorPosition.character}`);
+            let path = getYamlPathAtCursor(yamlContent, cursorPosition);
+            debugLog(`Path found from cursor: ${path ?? 'none'}`);
+            if(!path){
+                debugLog(`Falling back to value search for line value '${data}'`);
+                path = getYamlPath(parsedYaml, data);
+            }
             if(!path){
                 if(data.startsWith("- ")){
                     data = data = data.substring(2).trim();
@@ -220,19 +229,17 @@ function convertToString(value: any): string {
     if (typeof value === 'string') {
         return value;
     } else if (typeof value === 'object') {
-        return yaml.dump(value);
+        return jsYaml.dump(value);
     }
     else {
         return String(value);
     }
 }
 
-function highlightYamlPath(editor: vscode.TextEditor, path: string) {
-    const range = new vscode.Range(0, 0, 0, path.length + 13);
-    editor.setDecorations(vscode.window.createTextEditorDecorationType({
-        backgroundColor: new vscode.ThemeColor('editor.lineHighlightBackground'),
-        isWholeLine: true,
-    }), [range]);
+function showZoomStatus(path: string) {
+    zoomStatusBarItem.text = `$(search-view-icon) YAML Zoom: ${path}`;
+    zoomStatusBarItem.tooltip = `Editing YAML path ${path}`;
+    zoomStatusBarItem.show();
 }
 
 function setupCloseHandler(document: vscode.TextDocument) {
@@ -250,6 +257,7 @@ function setupCloseHandler(document: vscode.TextDocument) {
             }
             zoomedEditor = undefined;
             yamlPath = undefined;
+            zoomStatusBarItem.hide();
         }
     });
 }
@@ -263,16 +271,15 @@ async function updateOriginalYaml() {
     if (!zoomedContent) return;
 
     try {
-        const parsedYaml = yaml.load(yamlContent, { schema: yaml.DEFAULT_SCHEMA }) as any;
+        const parsedYaml = jsYaml.load(yamlContent, { schema: jsYaml.DEFAULT_SCHEMA }) as any;
 
-        // Remove the YAML path comment and any leading newlines
-        const fieldValue = zoomedContent.replace(/^# YAML Path:.*?\n?\n/, '').trim();
+        const fieldValue = zoomedContent;
 
         // Update the value in the parsed YAML
         setNestedValue(parsedYaml, yamlPath, fieldValue);
 
         // Convert the updated YAML back to a string
-        let updatedYaml = yaml.dump(parsedYaml, {
+        let updatedYaml = jsYaml.dump(parsedYaml, {
             noRefs: true,
             lineWidth: -1,
             forceQuotes: false,
@@ -423,4 +430,84 @@ async function detectLanguage(content: string): Promise<string> {
         return 'powershell';
     }
     return 'plaintext';
+}
+
+function getYamlPathAtCursor(yamlContent: string, cursor: vscode.Position): string | undefined {
+    let doc: any;
+    try {
+        doc = parseDocument(yamlContent);
+    } catch (error) {
+        debugLog(`YAML parse error while resolving cursor path: ${String(error)}`);
+        return undefined;
+    }
+
+    if (!doc.contents) {
+        return undefined;
+    }
+
+    const offset = getOffsetFromPosition(yamlContent, cursor);
+    const result = findPathForNodeAtOffset(doc.contents, offset, []);
+    return result?.join('.');
+}
+
+function getOffsetFromPosition(text: string, position: vscode.Position): number {
+    const lines = text.split(/\r?\n/);
+    let offset = 0;
+
+    for (let i = 0; i < position.line && i < lines.length; i++) {
+        offset += lines[i].length + 1;
+    }
+
+    return offset + position.character;
+}
+
+function findPathForNodeAtOffset(node: unknown, offset: number, path: string[]): string[] | undefined {
+    if (!node || typeof node !== 'object' || !('range' in node)) {
+        return undefined;
+    }
+
+    const range = (node as { range?: [number, number, number?] }).range;
+    if (!range) {
+        return undefined;
+    }
+
+    const [start, end] = range;
+    if (offset < start || offset > end) {
+        return undefined;
+    }
+
+    if (isMap(node)) {
+        for (const item of node.items) {
+            if (!item.key || !isScalar(item.key)) {
+                continue;
+            }
+
+            const keyText = String(item.key.value);
+            const keyRange = (item.key as { range?: [number, number, number?] }).range;
+            if (keyRange && offset >= keyRange[0] && offset <= keyRange[1]) {
+                return [...path, keyText];
+            }
+
+            if (!item.value) {
+                continue;
+            }
+
+            const nested = findPathForNodeAtOffset(item.value, offset, [...path, keyText]);
+            if (nested) {
+                return nested;
+            }
+        }
+    }
+
+    if (isSeq(node)) {
+        for (let i = 0; i < node.items.length; i++) {
+            const item = node.items[i];
+            const nested = findPathForNodeAtOffset(item, offset, [...path, String(i)]);
+            if (nested) {
+                return nested;
+            }
+        }
+    }
+
+    return path;
 }
