@@ -6,7 +6,7 @@
   "version": "0.1.1",
   "repository": "git@github.com:obegron/zoomyamlfield.git",
   "engines": {
-    "vscode": "^1.106.1"
+    "vscode": "^1.110.0"
   },
   "categories": [
     "Other"
