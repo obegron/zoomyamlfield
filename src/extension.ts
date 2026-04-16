@@ -69,10 +69,6 @@ async function zoomYamlField() {
 
     if (!yamlPath) return;
 
-    if (!yamlPath.startsWith('.')) {
-        yamlPath = '.' + yamlPath;
-    }
-
     const document = originalEditor.document;
     const yamlContent = document.getText();
     eol = document.eol === vscode.EndOfLine.CRLF ? '\r\n' : '\n';
@@ -334,7 +330,7 @@ function getYamlPath(obj: any, data: string): string | undefined {
                 const result = traverse(value, currentPath);
                 if (result) return result;
             } else if (typeof value === 'string' && value.includes(data)) {
-                    return currentPath.join('.');
+                    return formatYamlPath(currentPath);
             }            
         }
         return undefined;
@@ -343,7 +339,7 @@ function getYamlPath(obj: any, data: string): string | undefined {
 }
 
 function getNestedValue(obj: any, path: string): any {
-    const parts = path.split('.').filter(part => part !== '');
+    const parts = parseYamlPath(path);
     let current = obj;
 
     for (const part of parts) {
@@ -364,10 +360,6 @@ function getNestedValue(obj: any, path: string): any {
         }
     }
 
-    if (typeof current === 'object' && current !== null && 'toString' in current) {
-        return current.toString();
-    }
-
     return current;
 }
 
@@ -375,43 +367,133 @@ function setNestedValue(obj: any, path: string, value: string): void {
     debugLog(`${eol}Setting nested value for path: ${path}`);
     debugLog(`Value to set: ${value}`);
 
-    const parts = path.split('.').filter(part => part !== '');
+    const parts = parseYamlPath(path);
+    if (parts.length === 0) {
+        throw new Error('Cannot set an empty YAML path');
+    }
+
     let current = obj;
 
     for (let i = 0; i < parts.length - 1; i++) {
         const part = parts[i];
-        if (part.endsWith(']')) {
-            const [arrayName, indexStr] = part.split('[');
-            const index = parseInt(indexStr, 10);
-            if (!current[arrayName]) {
-                current[arrayName] = [];
+        const nextPart = parts[i + 1];
+
+        if (Array.isArray(current)) {
+            const index = parseArrayIndex(part);
+            if (index === undefined) {
+                throw new Error(`Expected array index at "${part}" in path "${path}"`);
             }
-            if (!current[arrayName][index]) {
-                current[arrayName][index] = {};
+            if (current[index] === undefined) {
+                current[index] = isArrayIndex(nextPart) ? [] : {};
             }
-            current = current[arrayName][index];
-        } else {
-            if (!current[part]) {
-                current[part] = {};
-            }
-            current = current[part];
+            current = current[index];
+            continue;
         }
+
+        if (typeof current !== 'object' || current === null) {
+            throw new Error(`Cannot descend into non-object value at "${part}" in path "${path}"`);
+        }
+
+        if (!(part in current) || current[part] === undefined) {
+            current[part] = isArrayIndex(nextPart) ? [] : {};
+        }
+
+        current = current[part];
     }
 
     const lastPart = parts[parts.length - 1];
-    if (lastPart.endsWith(']')) {
-        const [arrayName, indexStr] = lastPart.split('[');
-        const index = parseInt(indexStr, 10);
-        if (!current[arrayName]) {
-            current[arrayName] = [];
+    if (Array.isArray(current)) {
+        const index = parseArrayIndex(lastPart);
+        if (index === undefined) {
+            throw new Error(`Expected array index at "${lastPart}" in path "${path}"`);
         }
-        current[arrayName][index] = value;
+        current[index] = value;
     } else {
+        if (typeof current !== 'object' || current === null) {
+            throw new Error(`Cannot set value on non-object path "${path}"`);
+        }
         current[lastPart] = value;
     }
 
     debugLog("Nested value set");
 }
+
+function needsQuotedPathSegment(segment: string): boolean {
+    return segment.length === 0 || /[.\s"\\]/.test(segment);
+}
+
+function formatYamlPath(parts: string[]): string {
+    return parts
+        .map(part => needsQuotedPathSegment(part)
+            ? `"${part.replace(/\\/g, '\\\\').replace(/"/g, '\\"')}"`
+            : part)
+        .join('.');
+}
+
+function parseYamlPath(path: string): string[] {
+    const parts: string[] = [];
+    let current = '';
+    let inQuotes = false;
+    let escaping = false;
+
+    for (const char of path) {
+        if (escaping) {
+            current += char;
+            escaping = false;
+            continue;
+        }
+
+        if (inQuotes) {
+            if (char === '\\') {
+                escaping = true;
+            } else if (char === '"') {
+                inQuotes = false;
+            } else {
+                current += char;
+            }
+            continue;
+        }
+
+        if (char === '"') {
+            inQuotes = true;
+            continue;
+        }
+
+        if (char === '.') {
+            parts.push(current);
+            current = '';
+            continue;
+        }
+
+        current += char;
+    }
+
+    if (escaping || inQuotes) {
+        throw new Error(`Invalid YAML path: ${path}`);
+    }
+
+    parts.push(current);
+    return parts.filter((part, index) => !(index === 0 && part === ''));
+}
+
+function isArrayIndex(value: string): boolean {
+    return parseArrayIndex(value) !== undefined;
+}
+
+function parseArrayIndex(value: string): number | undefined {
+    if (!/^\d+$/.test(value)) {
+        return undefined;
+    }
+
+    return Number(value);
+}
+
+export const __testing = {
+    formatYamlPath,
+    parseYamlPath,
+    getNestedValue,
+    setNestedValue
+};
 
 async function detectLanguage(content: string): Promise<string> {
     // Check for known shebangs or language markers
@@ -447,7 +529,7 @@ function getYamlPathAtCursor(yamlContent: string, cursor: vscode.Position): stri
 
     const offset = getOffsetFromPosition(yamlContent, cursor);
     const result = findPathForNodeAtOffset(doc.contents, offset, []);
-    return result?.join('.');
+    return result ? formatYamlPath(result) : undefined;
 }
 
 function getOffsetFromPosition(text: string, position: vscode.Position): number {
