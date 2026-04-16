@@ -6,4 +6,12 @@ Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how 
 
 ## [Unreleased]
 
+## [0.1.3]
+
+- Fix path handling for YAML keys containing dots, including `data."settings.xml"`.
+- Fix zoom/edit lookup so dotted keys no longer resolve as nested keys.
+- Preserve object values for previews instead of collapsing them to `[object Object]`.
+
+## [0.1.2]
+
 - Initial release
