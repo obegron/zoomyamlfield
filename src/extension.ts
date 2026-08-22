@@ -98,11 +98,12 @@ async function zoomYamlField() {
         };
         const extension = langExtensions[detectedLanguage] || 'txt';
         const tempDir = os.tmpdir();
-        tempFilePath = path.join(tempDir, `zoomed-yaml-${Date.now()}.${extension}`);
+        const newTempFilePath = path.join(tempDir, `zoomed-yaml-${Date.now()}.${extension}`);
+        tempFilePath = newTempFilePath;
         const fileContent = stringValue;
-        fs.writeFileSync(tempFilePath, fileContent);
+        fs.writeFileSync(newTempFilePath, fileContent);
 
-        const newDocument = await vscode.workspace.openTextDocument(tempFilePath);
+        const newDocument = await vscode.workspace.openTextDocument(newTempFilePath);
 
         zoomedEditor = await vscode.window.showTextDocument(newDocument, vscode.ViewColumn.Beside);
         
