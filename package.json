@@ -75,10 +75,6 @@
     "mocha": "^11.7.6",
     "typescript": "^6.0.3"
   },
-  "overrides": {
-    "xml2js": "^0.5.0",
-    "serialize-javascript": "7.0.3"
-  },
   "dependencies": {
     "js-yaml": "^4.1.1",
     "yaml": "^2.9.0"
