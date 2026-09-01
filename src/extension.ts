@@ -268,7 +268,7 @@ async function updateOriginalYaml() {
     if (!zoomedContent) return;
 
     try {
-        const parsedYaml = jsYaml.load(yamlContent, { schema: jsYaml.DEFAULT_SCHEMA }) as any;
+        const parsedYaml = jsYaml.load(yamlContent) as any;
 
         const fieldValue = zoomedContent;
 
@@ -280,16 +280,7 @@ async function updateOriginalYaml() {
             noRefs: true,
             lineWidth: -1,
             forceQuotes: false,
-            quotingType: '"',
-            styles: {
-                '!!null': 'canonical', // dump null as ~
-                '!!int': 'decimal',
-                '!!bool': 'lowercase',
-                '!!float': 'lowercase',
-                '!!map': 'block',
-                '!!seq': 'block',
-                '!!str': 'literal'
-            }
+            quoteStyle: 'double'
         });
 
         // Apply the edit

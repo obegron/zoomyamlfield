@@ -6,6 +6,12 @@ Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how 
 
 ## [Unreleased]
 
+## [0.1.5]
+
+- Upgrade `js-yaml` to 5.4.1, including its merge-key CPU usage hardening, and adapt YAML loading and dumping to the new API.
+- Upgrade `@vscode/test-electron` to 3.1.0, `@types/node` to 26.4.0, and `@typescript-eslint/parser` to 8.68.0.
+- Keep TypeScript at 6.0.3 until TypeScript ESLint supports TypeScript 7.
+
 ## [0.1.4]
 
 - Refresh development dependencies and override `serialize-javascript` to `7.1.0` to resolve its high- and moderate-severity advisories.
