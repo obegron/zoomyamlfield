@@ -6,6 +6,12 @@ Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how 
 
 ## [Unreleased]
 
+## [0.1.6] - 2026-10-04
+
+- Upgrade VSCE to 4.0.0 and Mocha to 12.0.3 to remove vulnerable `braces` and `diff` dependencies.
+- Integrate Dependabot updates for `fast-uri`, ESLint, Node types, and TypeScript ESLint; align the parser and plugin at 8.71.0.
+- Remove vulnerable `undici` and `markdown-it` dependency chains and refresh YAML parsing dependencies to `js-yaml` 5.4.2.
+
 ## [0.1.5]
 
 - Upgrade `js-yaml` to 5.4.1, including its merge-key CPU usage hardening, and adapt YAML loading and dumping to the new API.
