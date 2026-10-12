@@ -79,7 +79,7 @@
     "serialize-javascript": "7.1.0"
   },
   "dependencies": {
-    "js-yaml": "^5.4.1",
+    "js-yaml": "^5.4.3",
     "yaml": "^2.9.0"
   }
 }
