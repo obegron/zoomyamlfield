@@ -6,6 +6,12 @@ Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how 
 
 ## [Unreleased]
 
+## [0.1.7] - 2026-10-24
+
+- Update `js-yaml` to 5.5.0.
+- Consolidate Dependabot updates for Node types and TypeScript ESLint; align the parser and plugin at 8.72.0 and update ESLint to 10.13.0.
+- Refresh transitive dependencies and update the `serialize-javascript` override to 7.1.3 to resolve its XSS advisory.
+
 ## [0.1.6] - 2026-10-04
 
 - Upgrade VSCE to 4.0.0 and Mocha to 12.0.3 to remove vulnerable `braces` and `diff` dependencies.
